@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Daily Notes</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+    margin: 0;
+    padding: 20px;
+}
+
+.container {
+    max-width: 500px;
+    margin: auto;
+    background: #fff;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+h2 {
+    text-align: center;
+}
+
+input, textarea {
+    width: 100%;
+    padding: 8px;
+    margin-top: 8px;
+    box-sizing: border-box;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+
+textarea {
+    height: 80px;
+}
+
+button {
+    padding: 8px 12px;
+    margin-top: 10px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.add-btn {
+    width: 100%;
+    background: #4CAF50;
+    color: white;
+}
+
+.note {
+    background: #fafafa;
+    padding: 10px;
+    border-radius: 6px;
+    margin-top: 12px;
+    border: 1px solid #ddd;
+}
+
+.note small {
+    color: #666;
+}
+
+.note-actions {
+    margin-top: 6px;
+    display: flex;
+    gap: 6px;
+}
+
+.edit { background: #2196F3; color: white; }
+.delete { background: #f44336; color: white; }
+.share { background: #25D366; color: white; }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+    <h2>📝 Daily Notes</h2>
+
+    <input type="date" id="noteDate">
+    <input type="time" id="noteTime">
+
+    <textarea id="noteInput" placeholder="Write your note here..."></textarea>
+    <button class="add-btn" onclick="addNote()">Add Note</button>
+
+    <div id="notesList"></div>
+</div>
+
+<script>
+let notes = JSON.parse(localStorage.getItem("notes")) || [];
+
+function saveNotes() {
+    localStorage.setItem("notes", JSON.stringify(notes));
+}
+
+function renderNotes() {
+    const list = document.getElementById("notesList");
+    list.innerHTML = "";
+
+    notes.forEach((note, index) => {
+        const div = document.createElement("div");
+        div.className = "note";
+
+        div.innerHTML = `
+            <small>${note.date} • ${note.time}</small>
+            <div>${note.text}</div>
+            <div class="note-actions">
+                <button class="edit" onclick="editNote(${index})">Edit</button>
+                <button class="delete" onclick="deleteNote(${index})">Delete</button>
+                <button class="share" onclick="shareNote(${index})">Share</button>
+            </div>
+        `;
+
+        list.appendChild(div);
+    });
+}
+
+function addNote() {
+    const text = document.getElementById("noteInput").value.trim();
+    const date = document.getElementById("noteDate").value;
+    const time = document.getElementById("noteTime").value;
+
+    if (!text || !date || !time) {
+        alert("Please enter note, date, and time");
+        return;
+    }
+
+    notes.unshift({ text, date, time });
+
+    document.getElementById("noteInput").value = "";
+    saveNotes();
+    renderNotes();
+}
+
+function editNote(index) {
+    const updated = prompt("Edit your note:", notes[index].text);
+    if (updated !== null) {
+        notes[index].text = updated;
+        saveNotes();
+        renderNotes();
+    }
+}
+
+function deleteNote(index) {
+    if (confirm("Delete this note?")) {
+        notes.splice(index, 1);
+        saveNotes();
+        renderNotes();
+    }
+}
+
+function shareNote(index) {
+    const note = notes[index];
+    const message = `📝 Note\n📅 ${note.date}\n⏰ ${note.time}\n\n${note.text}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
+}
+
+renderNotes();
+</script>
+
+</body>
+</html>
