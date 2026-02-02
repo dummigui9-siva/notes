@@ -6,6 +6,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
+
+label {
+    display: block;
+    margin-top: 10px;
+    font-weight: 600;
+    font-size: 14px;
+}
+
 body {
     font-family: Arial, sans-serif;
     background: #f4f6f8;
@@ -14,7 +22,7 @@ body {
 }
 
 .container {
-    max-width: 500px;
+    max-width: 520px;
     margin: auto;
     background: #fff;
     padding: 15px;
@@ -53,6 +61,12 @@ button {
     color: white;
 }
 
+.export-btn {
+    width: 100%;
+    background: #6a1b9a;
+    color: white;
+}
+
 .note {
     background: #fafafa;
     padding: 10px;
@@ -80,86 +94,292 @@ button {
 <body>
 
 <div class="container">
-    <h2>📝 Daily Notes</h2>
+<h2>📝 Daily Notes</h2>
 
-    <input type="date" id="noteDate">
-    <input type="time" id="noteTime">
+<label>Date <span style="color:red">*</span></label>
+<input type="date" id="noteDate" required>
 
-    <textarea id="noteInput" placeholder="Write your note here..."></textarea>
-    <button class="add-btn" onclick="addNote()">Add Note</button>
+<label>Time</label>
+<input type="time" id="noteTime">
+
+<label>Price</label>
+<input type="number" id="price" placeholder="e.g. 120.50" oninput="updateTotal()">
+
+<label>Quantity</label>
+<input type="number" id="quantity" placeholder="e.g. 2" oninput="updateTotal()">
+
+<label>Total</label>
+<input type="number" id="total" readonly placeholder="Auto-calculated">
+
+<label>Manufacture Date</label>
+<input type="date" id="mfgDate">
+
+<label>Expiry Date</label>
+<input type="date" id="expDate">
+
+<label>Notes / Description</label>
+<textarea id="noteInput" placeholder="Optional description..."></textarea>
+
+<button class="add-btn" onclick="addNote()">Add Entry</button>
+<button class="export-btn" onclick="exportCSV()">Export CSV</button>
+
 
     <div id="notesList"></div>
-</div>
+    </div>
 
 <script>
+/* ---------- GLOBAL STATE ---------- */
 let notes = JSON.parse(localStorage.getItem("notes")) || [];
+let editIndex = null;
 
+function calculateDateTotal(date) {
+    return notes
+        .filter(n => n.date === date)
+        .reduce((sum, n) => sum + (parseFloat(n.total) || 0), 0)
+        .toFixed(2);
+}
+
+function calculateGrandTotal() {
+    return notes
+        .reduce((sum, n) => sum + (parseFloat(n.total) || 0), 0)
+        .toFixed(2);
+}
+
+
+/* ---------- STORAGE ---------- */
 function saveNotes() {
     localStorage.setItem("notes", JSON.stringify(notes));
 }
 
+/* ---------- RENDER ---------- */
 function renderNotes() {
     const list = document.getElementById("notesList");
     list.innerHTML = "";
 
-    notes.forEach((note, index) => {
-        const div = document.createElement("div");
-        div.className = "note";
+    if (notes.length === 0) return;
 
-        div.innerHTML = `
-            <small>${note.date} • ${note.time}</small>
-            <div>${note.text}</div>
-            <div class="note-actions">
-                <button class="edit" onclick="editNote(${index})">Edit</button>
-                <button class="delete" onclick="deleteNote(${index})">Delete</button>
-                <button class="share" onclick="shareNote(${index})">Share</button>
-            </div>
-        `;
+    const grouped = {};
 
-        list.appendChild(div);
+    // Group entries by date
+    notes.forEach(n => {
+        if (!grouped[n.date]) grouped[n.date] = [];
+        grouped[n.date].push(n);
     });
+
+    // Render date-wise
+    Object.keys(grouped).forEach(date => {
+        const dateHeader = document.createElement("h3");
+        dateHeader.innerText = `📅 ${date} — Total: ₹${calculateDateTotal(date)}`;
+        list.appendChild(dateHeader);
+
+        grouped[date].forEach((note, index) => {
+            const div = document.createElement("div");
+            div.className = "note";
+
+            div.innerHTML = `
+                <div>${note.text || "<i>No notes</i>"}</div>
+                <small>
+                    💰 ${note.price || "-"} |
+                    📦 ${note.quantity || "-"} |
+                    🧮 ${note.total || "-"}<br>
+                    🏭 ${note.mfgDate || "-"} |
+                    ⏳ ${note.expDate || "-"}
+                </small>
+
+                <div class="note-actions">
+                    <button class="edit" onclick="editNote(${notes.indexOf(note)})">Edit</button>
+                    <button class="delete" onclick="deleteNote(${notes.indexOf(note)})">Delete</button>
+                    <button class="share" onclick="shareNote(${notes.indexOf(note)})">Share</button>
+                </div>
+            `;
+            list.appendChild(div);
+        });
+    });
+
+    // Grand Total
+    const grand = document.createElement("h2");
+    grand.style.marginTop = "15px";
+    grand.innerText = `🧾 Grand Total: ₹${calculateGrandTotal()}`;
+    list.appendChild(grand);
 }
 
+/* ---------- ADD / UPDATE ---------- */
 function addNote() {
-    const text = document.getElementById("noteInput").value.trim();
     const date = document.getElementById("noteDate").value;
-    const time = document.getElementById("noteTime").value;
 
-    if (!text || !date || !time) {
-        alert("Please enter note, date, and time");
+    if (!date) {
+        alert("Date is mandatory");
         return;
     }
 
-    notes.unshift({ text, date, time });
+    const entry = {
+    date: date,
+    time: document.getElementById("noteTime").value || "",
+    text: document.getElementById("noteInput").value.trim(),
+    price: document.getElementById("price").value || "",
+    quantity: document.getElementById("quantity").value || "",
+    total: document.getElementById("total").value || "",
+    mfgDate: document.getElementById("mfgDate").value || "",
+    expDate: document.getElementById("expDate").value || ""
+};
 
-    document.getElementById("noteInput").value = "";
+
+    if (editIndex !== null) {
+        notes[editIndex] = entry;
+        editIndex = null;
+        document.querySelector(".add-btn").innerText = "Add Entry";
+    } else {
+        notes.unshift(entry);
+    }
+
+    clearForm();
     saveNotes();
     renderNotes();
 }
 
+/* ---------- EDIT ---------- */
 function editNote(index) {
-    const updated = prompt("Edit your note:", notes[index].text);
-    if (updated !== null) {
-        notes[index].text = updated;
-        saveNotes();
-        renderNotes();
-    }
+    const n = notes[index];
+
+    document.getElementById("noteDate").value = n.date || "";
+    document.getElementById("noteTime").value = n.time || "";
+    document.getElementById("price").value = n.price || "";
+    document.getElementById("quantity").value = n.quantity || "";
+    document.getElementById("total").value = n.total || "";
+
+    document.getElementById("mfgDate").value = n.mfgDate || "";
+    document.getElementById("expDate").value = n.expDate || "";
+    document.getElementById("noteInput").value = n.text || "";
+
+    editIndex = index;
+    document.querySelector(".add-btn").innerText = "Update Entry";
 }
 
+/* ---------- DELETE ---------- */
 function deleteNote(index) {
-    if (confirm("Delete this note?")) {
+    if (confirm("Delete this entry?")) {
         notes.splice(index, 1);
         saveNotes();
         renderNotes();
     }
 }
 
-function shareNote(index) {
-    const note = notes[index];
-    const message = `📝 Note\n📅 ${note.date}\n⏰ ${note.time}\n\n${note.text}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
+function updateTotal() {
+    // Total should just reflect the entered Price, NOT price * quantity.
+    const price = parseFloat(document.getElementById("price").value) || 0;
+    document.getElementById("total").value = price.toFixed(2);
 }
 
+function calculateGrandTotal() {
+    let sum = 0;
+
+    notes.forEach(n => {
+        sum += parseFloat(n.total) || 0;
+    });
+
+    return sum.toFixed(2);
+}
+
+
+
+/* ---------- SHARE ---------- */
+function shareNote(index) {
+    const n = notes[index];
+    const msg = `📝 Entry
+📅 ${n.date}
+⏰ ${n.time || "-"}
+💰 ${n.price || "-"}
+📦 ${n.quantity || "-"}
+🏭 ${n.mfgDate || "-"}
+⏳ ${n.expDate || "-"}
+
+${n.text || ""}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+}
+
+/* ---------- EXPORT CSV ---------- */
+function exportCSV() {
+    if (!notes || notes.length === 0) {
+        alert("No entries available to export");
+        return;
+    }
+
+    const headers = [
+    "Date",
+    "Time",
+    "Notes",
+    "Price",
+    "Quantity",
+    "Total",
+    "Manufacture Date",
+    "Expiry Date"
+];
+
+
+    let csvRows = [];
+    csvRows.push(headers.join(","));
+
+    notes.forEach(n => {
+        const row = [
+    n.date || "",
+    n.time || "",
+    `"${(n.text || "").replace(/"/g, '""')}"`,
+    n.price || "",
+    n.quantity || "",
+    n.total || "",
+    n.mfgDate || "",
+    n.expDate || ""
+];
+
+        csvRows.push(row.join(","));
+    });
+
+    // empty row for spacing
+csvRows.push("");
+
+// grand total row
+csvRows.push([
+    "",
+    "",
+    "Grand Total",
+    "",
+    "",
+    calculateGrandTotal(),
+    "",
+    ""
+].join(","));
+
+
+    const csvContent = csvRows.join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "daily_notes.csv";
+    document.body.appendChild(link);
+    link.click();
+
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+
+/* ---------- UTIL ---------- */
+function clearForm() {
+    document.getElementById("noteDate").value = "";
+    document.getElementById("noteTime").value = "";
+    document.getElementById("price").value = "";
+    document.getElementById("quantity").value = "";
+    document.getElementById("total").value = "";
+
+    document.getElementById("mfgDate").value = "";
+    document.getElementById("expDate").value = "";
+    document.getElementById("noteInput").value = "";
+}
+
+/* ---------- INIT ---------- */
 renderNotes();
 </script>
 
