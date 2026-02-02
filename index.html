@@ -169,7 +169,7 @@ function renderNotes() {
     // Render date-wise
     Object.keys(grouped).forEach(date => {
         const dateHeader = document.createElement("h3");
-        dateHeader.innerText = `📅 ${date} — Total: ₹${calculateDateTotal(date)}`;
+        dateHeader.innerText = `Purchased items📅 ${date} — Total: ₹${calculateDateTotal(date)}`;
         list.appendChild(dateHeader);
 
         grouped[date].forEach((note, index) => {
